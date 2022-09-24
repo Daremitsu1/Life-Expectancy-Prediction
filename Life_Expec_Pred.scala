@@ -127,7 +127,15 @@ display(lifeDF)
 
 // COMMAND ----------
 
+// MAGIC %md
+// MAGIC 
+// MAGIC ##### 4.5. Histograms of Infant Deaths
 
+// COMMAND ----------
+
+// MAGIC %sql
+// MAGIC 
+// MAGIC select infant_deaths from LifeData
 
 // COMMAND ----------
 
@@ -143,11 +151,14 @@ display(lifeDF)
 
 // COMMAND ----------
 
-
+// MAGIC %md
+// MAGIC ##### 4.20. Life Expectancy w.r.t Year
 
 // COMMAND ----------
 
-
+// MAGIC %sql
+// MAGIC 
+// MAGIC select avg(Life_expectancy), Year from LifeData group by Year order by Year asc
 
 // COMMAND ----------
 
@@ -178,6 +189,11 @@ indexed.show()
 
 // COMMAND ----------
 
+// MAGIC %md
+// MAGIC #### 6. Define the Pipeline
+
+// COMMAND ----------
+
 // MAGIC %scala
 // MAGIC 
 // MAGIC import org.apache.spark.ml.attribute.Attribute
@@ -195,20 +211,30 @@ indexed.show()
 
 // COMMAND ----------
 
-// MAGIC %scala
-// MAGIC 
-// MAGIC LifeDF.printSchema()
+// 6.1. Print the Schema
+
+%scala
+
+LifeDF.printSchema()
 
 // COMMAND ----------
 
-// MAGIC %scala
+// 6.2. Split the data
+
+%scala
+
+val splits = LifeDF.randomSplit(Array(0.7, 0.3))
+val train = splits(0)
+val test = splits(1)
+val train_rows = train.count()
+val test_rows = test.count()
+println("Training Rows: " + train_rows + " Testing Rows: " + test_rows)
+
+// COMMAND ----------
+
+// MAGIC %md
 // MAGIC 
-// MAGIC val splits = LifeDF.randomSplit(Array(0.7, 0.3))
-// MAGIC val train = splits(0)
-// MAGIC val test = splits(1)
-// MAGIC val train_rows = train.count()
-// MAGIC val test_rows = test.count()
-// MAGIC println("Training Rows: " + train_rows + " Testing Rows: " + test_rows)
+// MAGIC #### 7. VectorAssembler()
 
 // COMMAND ----------
 
@@ -221,6 +247,12 @@ indexed.show()
 // MAGIC val training = assembler.transform(train).select($"features", $"Life_expectancy".alias("label"))
 // MAGIC 
 // MAGIC training.show()
+
+// COMMAND ----------
+
+// MAGIC %md
+// MAGIC 
+// MAGIC ##### 7.1. Train the linear regression model
 
 // COMMAND ----------
 
@@ -238,6 +270,47 @@ indexed.show()
 // MAGIC val model = lr.fit(training)
 // MAGIC 
 // MAGIC println("Model Trained!")
+
+// COMMAND ----------
+
+// MAGIC %md
+// MAGIC 
+// MAGIC ##### 7.2. Prepare the testing data
+
+// COMMAND ----------
+
+// MAGIC %scala
+// MAGIC 
+// MAGIC val testing = assembler.transform(test).select($"features", $"Life_expectancy".alias("trueLabel"))
+// MAGIC testing.show()
+
+// COMMAND ----------
+
+// MAGIC %md
+// MAGIC 
+// MAGIC ##### 7.3. Test the Model
+
+// COMMAND ----------
+
+// MAGIC %scala
+// MAGIC 
+// MAGIC val prediction = model.transform(testing)
+// MAGIC val predicted = prediction.select("features", "prediction", "trueLabel")
+// MAGIC predicted.show(100)
+
+// COMMAND ----------
+
+// MAGIC %md
+// MAGIC 
+// MAGIC #### 8. Root-Mean-Square-Error(RMSE)
+
+// COMMAND ----------
+
+import org.apache.spark.ml.evaluation.RegressionEvaluator
+
+val evaluator = new RegressionEvaluator().setLabelCol("trueLabel").setPredictionCol("prediction").setMetricName("rmse")
+val rmse = evaluator.evaluate(prediction)
+println("Root Mean Square Error (RMSE): " + (rmse))
 
 // COMMAND ----------
 
